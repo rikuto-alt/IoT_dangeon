@@ -1,5 +1,7 @@
 const API_URL = "/api/status"; // Node-RED側でこのURLを返す想定
 const UPDATE_INTERVAL_MS = 60 * 1000; // 試作用．本番では5分程度でもよい
+const HIGH_HUMIDITY_THRESHOLD = 70;
+const MOLD_STORAGE_KEY = "airGarden.highHumidityStartedAt";
 
 const demoData = [
   { co2: 620, temp: 24.6, humidity: 52, weather: "sunny" },
@@ -21,6 +23,15 @@ const elements = {
   tempBar: document.getElementById("tempBar"),
   humidityBar: document.getElementById("humidityBar"),
   message: document.getElementById("message"),
+  laundryScore: document.getElementById("laundryScore"),
+  laundryBar: document.getElementById("laundryBar"),
+  laundryMessage: document.getElementById("laundryMessage"),
+  laundryAdvice: document.getElementById("laundryAdvice"),
+  moldRisk: document.getElementById("moldRisk"),
+  moldBar: document.getElementById("moldBar"),
+  moldMessage: document.getElementById("moldMessage"),
+  moldDuration: document.getElementById("moldDuration"),
+  moldAdvice: document.getElementById("moldAdvice"),
   quest: document.getElementById("quest"),
   questTitle: document.getElementById("questTitle"),
   questText: document.getElementById("questText"),
@@ -28,8 +39,47 @@ const elements = {
   mockButton: document.getElementById("mockButton")
 };
 
+let highHumidityStartedAt = readHighHumidityStartedAt();
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function readHighHumidityStartedAt() {
+  try {
+    const savedValue = window.localStorage.getItem(MOLD_STORAGE_KEY);
+    const savedTimestamp = Number(savedValue);
+    return Number.isFinite(savedTimestamp) && savedTimestamp > 0 ? savedTimestamp : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function saveHighHumidityStartedAt(timestamp) {
+  try {
+    if (timestamp) {
+      window.localStorage.setItem(MOLD_STORAGE_KEY, String(timestamp));
+    } else {
+      window.localStorage.removeItem(MOLD_STORAGE_KEY);
+    }
+  } catch (error) {
+    // localStorageが使えない環境でも，画面表示だけは継続する
+  }
+}
+
+function getHighHumidityMinutes(humidity) {
+  if (humidity >= HIGH_HUMIDITY_THRESHOLD) {
+    if (!highHumidityStartedAt) {
+      highHumidityStartedAt = Date.now();
+      saveHighHumidityStartedAt(highHumidityStartedAt);
+    }
+
+    return Math.max(0, Math.floor((Date.now() - highHumidityStartedAt) / 60000));
+  }
+
+  highHumidityStartedAt = null;
+  saveHighHumidityStartedAt(null);
+  return 0;
 }
 
 function judgeStatus(data) {
@@ -83,6 +133,87 @@ function judgeStatus(data) {
   return { score, rank, quests };
 }
 
+function judgeLaundry(data) {
+  const humidityPenalty = Math.max(0, data.humidity - 40) * 1.55;
+  const tempEffect = data.temp >= 24 ? (data.temp - 24) * 2 : (data.temp - 24) * 3;
+  const score = Math.round(clamp(100 - humidityPenalty + tempEffect, 0, 100));
+
+  if (score >= 75) {
+    return {
+      score,
+      message: "今なら部屋干しOK",
+      advice: "湿度と温度の条件がよく，洗濯物が乾きやすい状態です．",
+      level: "good"
+    };
+  }
+
+  if (score >= 55) {
+    return {
+      score,
+      message: "乾きますが少し時間がかかりそうです",
+      advice: "扇風機や換気で空気を動かすと，より乾きやすくなります．",
+      level: "warning"
+    };
+  }
+
+  return {
+    score,
+    message: "湿度が高いため乾きにくいです",
+    advice: "除湿機・換気推奨．干す間隔を広げるのも効果的です．",
+    level: "danger"
+  };
+}
+
+function judgeMold(data, highHumidityMinutes) {
+  if (data.humidity >= 80 && highHumidityMinutes >= 30) {
+    return {
+      risk: "高",
+      value: 100,
+      message: "カビ警報：除湿推奨",
+      advice: "高湿度が続いています．換気・除湿をすぐ確認してください．",
+      level: "danger"
+    };
+  }
+
+  if (data.humidity >= HIGH_HUMIDITY_THRESHOLD && highHumidityMinutes >= 60) {
+    return {
+      risk: "高",
+      value: 90,
+      message: "高湿度が続いています．換気してください",
+      advice: "湿度70％以上が1時間以上続いているため，除湿をおすすめします．",
+      level: "danger"
+    };
+  }
+
+  if (data.humidity >= HIGH_HUMIDITY_THRESHOLD) {
+    return {
+      risk: "中",
+      value: 65,
+      message: "湿度70％超え。注意",
+      advice: "この状態が続くとカビが発生しやすくなります．",
+      level: "warning"
+    };
+  }
+
+  if (data.humidity >= 65) {
+    return {
+      risk: "中",
+      value: 45,
+      message: "湿度がやや高めです",
+      advice: "早めに換気して，70％を超えないようにしましょう．",
+      level: "warning"
+    };
+  }
+
+  return {
+    risk: "低",
+    value: 20,
+    message: "カビ危険度：低",
+    advice: "今の湿度ならカビは発生しにくい状態です．",
+    level: "good"
+  };
+}
+
 function updateBar(element, value, max, warningValue, dangerValue) {
   const percent = clamp((value / max) * 100, 0, 100);
   element.style.width = `${percent}%`;
@@ -96,17 +227,59 @@ function updateBar(element, value, max, warningValue, dangerValue) {
   }
 }
 
+function updateLevelBar(element, percent, level) {
+  element.style.width = `${clamp(percent, 0, 100)}%`;
+
+  if (level === "danger") {
+    element.style.background = "#ef5b5b";
+  } else if (level === "warning") {
+    element.style.background = "#ffd76a";
+  } else {
+    element.style.background = "#6fc36a";
+  }
+}
+
+function formatDuration(minutes) {
+  if (minutes < 60) {
+    return `${minutes}分`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return remainingMinutes === 0 ? `${hours}時間` : `${hours}時間${remainingMinutes}分`;
+}
+
 function render(data) {
   const status = judgeStatus(data);
+  const highHumidityMinutes = getHighHumidityMinutes(data.humidity);
+  const laundry = judgeLaundry(data);
+  const mold = judgeMold(data, highHumidityMinutes);
+  const quests = [...status.quests];
+
+  if (mold.level === "danger") {
+    quests.unshift({
+      title: "カビ警報クエスト！",
+      text: `${mold.message} ${mold.advice}`
+    });
+  }
 
   elements.co2.textContent = Math.round(data.co2);
   elements.temp.textContent = data.temp.toFixed(1);
   elements.humidity.textContent = data.humidity.toFixed(1);
   elements.rank.textContent = status.rank;
+  elements.laundryScore.textContent = laundry.score;
+  elements.laundryMessage.textContent = laundry.message;
+  elements.laundryAdvice.textContent = laundry.advice;
+  elements.moldRisk.textContent = mold.risk;
+  elements.moldMessage.textContent = mold.message;
+  elements.moldDuration.textContent = formatDuration(highHumidityMinutes);
+  elements.moldAdvice.textContent = mold.advice;
 
   updateBar(elements.co2Bar, data.co2, 2000, 800, 1000);
   updateBar(elements.tempBar, data.temp, 40, 27, 30);
   updateBar(elements.humidityBar, data.humidity, 100, 65, 70);
+  updateLevelBar(elements.laundryBar, laundry.score, laundry.level);
+  updateLevelBar(elements.moldBar, mold.value, mold.level);
 
   elements.scene.classList.remove("sunny", "cloudy", "rainy", "hot", "bad-air", "normal");
   elements.scene.classList.add(data.weather || "sunny");
@@ -125,8 +298,8 @@ function render(data) {
     elements.mouth.classList.add("happy");
   }
 
-  if (status.quests.length > 0) {
-    const quest = status.quests[0];
+  if (quests.length > 0) {
+    const quest = quests[0];
     elements.questTitle.textContent = quest.title;
     elements.questText.textContent = quest.text;
     elements.quest.classList.remove("hidden");

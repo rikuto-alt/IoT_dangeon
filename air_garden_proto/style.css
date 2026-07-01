@@ -295,15 +295,24 @@ h1 {
   display: none;
 }
 
-.status-panel {
+.status-panel,
+.life-panel {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
   gap: 14px;
   margin-top: 18px;
 }
 
+.status-panel {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.life-panel {
+  grid-template-columns: repeat(2, 1fr);
+}
+
 .meter-card,
-.message-card {
+.message-card,
+.life-card {
   min-height: 120px;
   padding: 16px;
   background: #24324d;
@@ -312,7 +321,8 @@ h1 {
 }
 
 .meter-card span,
-.message-card span {
+.message-card span,
+.life-card small {
   display: block;
   color: #d9d2aa;
   margin-bottom: 8px;
@@ -346,6 +356,44 @@ h1 {
   line-height: 1.6;
 }
 
+.life-card {
+  min-height: 154px;
+}
+
+.life-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.life-card-header > span {
+  color: #d9d2aa;
+  margin-bottom: 0;
+}
+
+.life-card-header strong {
+  color: #f8f3df;
+  font-size: 30px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.life-card p {
+  margin: 14px 0 8px;
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: bold;
+  line-height: 1.5;
+}
+
+.life-card small {
+  margin-bottom: 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
 button {
   padding: 8px 12px;
   background: #ffd76a;
@@ -356,11 +404,53 @@ button {
 }
 
 @media (max-width: 850px) {
-  .status-panel {
+  .status-panel,
+  .life-panel {
     grid-template-columns: 1fr 1fr;
   }
 
   .scene {
     height: 380px;
+  }
+}
+
+@media (max-width: 560px) {
+  body {
+    align-items: flex-start;
+  }
+
+  .game {
+    width: 100%;
+    padding: 16px;
+  }
+
+  .top-bar {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  h1 {
+    font-size: 32px;
+  }
+
+  .rank-box {
+    width: 96px;
+  }
+
+  .status-panel,
+  .life-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .scene {
+    height: 340px;
+  }
+
+  .tree-left {
+    left: 52px;
+  }
+
+  .tree-right {
+    right: 54px;
   }
 }
