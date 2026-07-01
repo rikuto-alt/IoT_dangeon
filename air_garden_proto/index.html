@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Air Garden Prototype</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="game">
+    <header class="top-bar">
+      <div>
+        <h1>Air Garden</h1>
+        <p>Airoco連動型・室内環境モニター</p>
+      </div>
+      <div class="rank-box">
+        <span>Air Rank</span>
+        <strong id="rank">A</strong>
+      </div>
+    </header>
+
+    <section id="scene" class="scene sunny normal">
+      <div class="sky">
+        <div class="sun"></div>
+        <div class="cloud cloud-1"></div>
+        <div class="cloud cloud-2"></div>
+        <div class="rain"></div>
+        <div class="fog"></div>
+      </div>
+
+      <div class="field">
+        <div class="tree tree-left"></div>
+        <div class="tree tree-right"></div>
+
+        <div id="character" class="character">
+          <div class="face">
+            <span class="eye left"></span>
+            <span class="eye right"></span>
+            <span id="mouth" class="mouth happy"></span>
+          </div>
+          <div class="body"></div>
+        </div>
+      </div>
+
+      <div id="quest" class="quest hidden">
+        <h2 id="questTitle">換気クエスト発生！</h2>
+        <p id="questText">CO2濃度が高くなっています．換気しましょう．</p>
+      </div>
+    </section>
+
+    <section class="status-panel">
+      <div class="meter-card">
+        <span>CO2</span>
+        <strong><span id="co2">--- </span> ppm</strong>
+        <div class="bar">
+          <div id="co2Bar" class="bar-fill"></div>
+        </div>
+      </div>
+
+      <div class="meter-card">
+        <span>温度</span>
+        <strong><span id="temp">--- </span> ℃</strong>
+        <div class="bar">
+          <div id="tempBar" class="bar-fill"></div>
+        </div>
+      </div>
+
+      <div class="meter-card">
+        <span>湿度</span>
+        <strong><span id="humidity">--- </span> %</strong>
+        <div class="bar">
+          <div id="humidityBar" class="bar-fill"></div>
+        </div>
+      </div>
+
+      <div class="message-card">
+        <span>現在の状態</span>
+        <p id="message">データ取得中です．</p>
+        <button id="mockButton" type="button">デモ値を変える</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
