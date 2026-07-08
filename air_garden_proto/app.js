@@ -180,7 +180,6 @@ function judgeMold(data, highHumidityMinutes) {
     points += 2;
   }
 
-  // 上昇傾向判定
   let co2Rising = false;
   let humidityRising = false;
 
@@ -193,22 +192,19 @@ function judgeMold(data, highHumidityMinutes) {
     humidityRising = true;
   }
 
-  // 両方上昇
   if (co2Rising && humidityRising) {
     points += 2;
   }
 
-  // 次回用に保存
   previousCo2 = data.co2;
   previousHumidity = data.humidity;
 
-  // 判定
   if (points >= 9) {
     return {
       risk: "カビ警報",
       value: 100,
       message: `危険度 ${points}点`,
-      advice: "カビ発生リスクが非常に高いです。換気・除湿を行ってください。",
+      advice: "カビ発生リスクが非常に高いです。",
       level: "danger"
     };
   }
@@ -242,44 +238,7 @@ function judgeMold(data, highHumidityMinutes) {
   };
 }
 
-  if (data.humidity >= HIGH_HUMIDITY_THRESHOLD && highHumidityMinutes >= 60) {
-    return {
-      risk: "高",
-      value: 90,
-      message: "高湿度が続いています．換気してください",
-      advice: "湿度70％以上が1時間以上続いているため，除湿をおすすめします．",
-      level: "danger"
-    };
-  }
-
-  if (data.humidity >= HIGH_HUMIDITY_THRESHOLD) {
-    return {
-      risk: "中",
-      value: 65,
-      message: "湿度70％超え。注意",
-      advice: "この状態が続くとカビが発生しやすくなります．",
-      level: "warning"
-    };
-  }
-
-  if (data.humidity >= 65) {
-    return {
-      risk: "中",
-      value: 45,
-      message: "湿度がやや高めです",
-      advice: "早めに換気して，70％を超えないようにしましょう．",
-      level: "warning"
-    };
-  }
-
-  return {
-    risk: "低",
-    value: 20,
-    message: "カビ危険度：低",
-    advice: "今の湿度ならカビは発生しにくい状態です．",
-    level: "good"
-  };
-}
+  
 
 function updateBar(element, value, max, warningValue, dangerValue) {
   const percent = clamp((value / max) * 100, 0, 100);
