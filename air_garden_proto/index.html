@@ -13,11 +13,26 @@
         <h1>Air Garden</h1>
         <p>Airoco連動型・室内環境モニター</p>
       </div>
-      <div class="rank-box">
-        <span>Air Rank</span>
-        <strong id="rank">A</strong>
+
+      <div class="top-status">
+        <div class="room-box">
+          <span>Room</span>
+          <strong id="currentRoomLabel">R3-401</strong>
+          <small id="lastUpdated">更新待機中</small>
+        </div>
+
+        <div class="rank-box">
+          <span>Air Rank</span>
+          <strong id="rank">A</strong>
+        </div>
       </div>
     </header>
+
+    <nav class="room-switcher">
+      <button class="room-tab active" data-room-index="0">Ｒ３ー４０１</button>
+      <button class="room-tab" data-room-index="1">Ｒ３ー４０３</button>
+      <button class="room-tab" data-room-index="2">Ｒ３ー３０１</button>
+    </nav>
 
     <section id="scene" class="scene sunny normal">
       <div class="sky">
