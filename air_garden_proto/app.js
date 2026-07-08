@@ -1,4 +1,4 @@
-const API_URL = "/api/status"; // Node-RED側でこのURLを返す想定
+const API_URL = "http://192.168.98.121:1880/api/status"; // Node-RED側でこのURLを返す想定
 const UPDATE_INTERVAL_MS = 60 * 1000; // 試作用．本番では5分程度でもよい
 const HIGH_HUMIDITY_THRESHOLD = 70;
 const MOLD_STORAGE_KEY = "airGarden.highHumidityStartedAt";
