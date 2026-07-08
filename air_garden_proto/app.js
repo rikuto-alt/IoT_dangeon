@@ -1,13 +1,32 @@
 const API_URL = "https://airoco.necolico.jp/data-api/latest?id=CgETViZ2&subscription-key=6b8aa7133ece423c836c38af01c59880";
-const SENSOR_NAME = "Ｒ３ー４０１";
 const UPDATE_INTERVAL_MS = 60 * 1000;
 
 const HIGH_HUMIDITY_THRESHOLD = 70;
 const MOLD_STORAGE_KEY = "air-garden-high-humidity-start";
 
+const ROOMS = [
+  {
+    id: "r3-401",
+    label: "R3-401",
+    sensorNameCandidates: ["R3-401", "Ｒ３ー４０１", "Ｒ３－４０１"]
+  },
+  {
+    id: "r3-403",
+    label: "R3-403",
+    sensorNameCandidates: ["R3-403", "Ｒ３ー４０３", "Ｒ３－４０３"]
+  },
+  {
+    id: "r3-301",
+    label: "R3-301",
+    sensorNameCandidates: ["R3-301", "Ｒ３ー３０１", "Ｒ３－３０１"]
+  }
+];
+
 const elements = {
   scene: document.getElementById("scene"),
   rank: document.getElementById("rank"),
+  currentRoomLabel: document.getElementById("currentRoomLabel"),
+  lastUpdated: document.getElementById("lastUpdated"),
   co2: document.getElementById("co2"),
   temp: document.getElementById("temp"),
   humidity: document.getElementById("humidity"),
@@ -28,17 +47,28 @@ const elements = {
   questTitle: document.getElementById("questTitle"),
   questText: document.getElementById("questText"),
   mouth: document.getElementById("mouth"),
+  roomTabs: document.querySelectorAll(".room-tab")
 };
 
-let highHumidityStartedAt = readHighHumidityStartedAt();
+let currentRoomIndex = 0;
+let latestRoomResults = [];
+const highHumidityStartedAtByRoom = {};
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
-function readHighHumidityStartedAt() {
+function normalizeRoomName(name) {
+  return String(name)
+    .normalize("NFKC")
+    .replace(/[ー－―−–—]/g, "-")
+    .toUpperCase()
+    .trim();
+}
+
+function readHighHumidityStartedAt(roomId) {
   try {
-    const savedValue = window.localStorage.getItem(MOLD_STORAGE_KEY);
+    const savedValue = window.localStorage.getItem(`${MOLD_STORAGE_KEY}-${roomId}`);
     const savedTimestamp = Number(savedValue);
     return Number.isFinite(savedTimestamp) && savedTimestamp > 0 ? savedTimestamp : null;
   } catch (error) {
@@ -46,31 +76,90 @@ function readHighHumidityStartedAt() {
   }
 }
 
-function saveHighHumidityStartedAt(timestamp) {
+function saveHighHumidityStartedAt(roomId, timestamp) {
   try {
+    const key = `${MOLD_STORAGE_KEY}-${roomId}`;
+
     if (timestamp) {
-      window.localStorage.setItem(MOLD_STORAGE_KEY, String(timestamp));
+      window.localStorage.setItem(key, String(timestamp));
     } else {
-      window.localStorage.removeItem(MOLD_STORAGE_KEY);
+      window.localStorage.removeItem(key);
     }
   } catch (error) {
     // localStorageが使えない環境でも，画面表示だけは継続する
   }
 }
 
-function getHighHumidityMinutes(humidity) {
+function getHighHumidityMinutes(roomId, humidity) {
   if (humidity >= HIGH_HUMIDITY_THRESHOLD) {
-    if (!highHumidityStartedAt) {
-      highHumidityStartedAt = Date.now();
-      saveHighHumidityStartedAt(highHumidityStartedAt);
+    let startedAt = highHumidityStartedAtByRoom[roomId];
+
+    if (!startedAt) {
+      startedAt = readHighHumidityStartedAt(roomId);
     }
 
-    return Math.max(0, Math.floor((Date.now() - highHumidityStartedAt) / 60000));
+    if (!startedAt) {
+      startedAt = Date.now();
+      saveHighHumidityStartedAt(roomId, startedAt);
+    }
+
+    highHumidityStartedAtByRoom[roomId] = startedAt;
+    return Math.max(0, Math.floor((Date.now() - startedAt) / 60000));
   }
 
-  highHumidityStartedAt = null;
-  saveHighHumidityStartedAt(null);
+  highHumidityStartedAtByRoom[roomId] = null;
+  saveHighHumidityStartedAt(roomId, null);
   return 0;
+}
+
+function getNumberValue(sensor, names) {
+  for (const name of names) {
+    if (sensor[name] !== undefined && sensor[name] !== null && sensor[name] !== "") {
+      const value = Number(sensor[name]);
+
+      if (Number.isFinite(value)) {
+        return value;
+      }
+    }
+  }
+
+  return null;
+}
+
+function findSensorByRoom(sensors, room) {
+  const normalizedCandidates = room.sensorNameCandidates.map(normalizeRoomName);
+
+  return sensors.find(sensor => {
+    const sensorName = sensor.sensorName ?? sensor.name ?? "";
+    const normalizedSensorName = normalizeRoomName(sensorName);
+
+    return normalizedCandidates.includes(normalizedSensorName);
+  });
+}
+
+function normalizeSensorData(sensor) {
+  const co2 = getNumberValue(sensor, ["co2", "CO2"]);
+  const temp = getNumberValue(sensor, ["temperature", "temp"]);
+  const humidity = getNumberValue(sensor, ["relativeHumidity", "rh", "humidity"]);
+
+  if (co2 === null || temp === null || humidity === null) {
+    return null;
+  }
+
+  let weather = "sunny";
+
+  if (humidity >= 70) {
+    weather = "rainy";
+  } else if (co2 >= 1000) {
+    weather = "cloudy";
+  }
+
+  return {
+    co2,
+    temp,
+    humidity,
+    weather
+  };
 }
 
 function judgeStatus(data) {
@@ -180,7 +269,7 @@ function judgeMold(data, highHumidityMinutes) {
     return {
       risk: "中",
       value: 65,
-      message: "湿度70％超え。注意",
+      message: "湿度70％超え．注意",
       advice: "この状態が続くとカビが発生しやすくなります．",
       level: "warning"
     };
@@ -240,9 +329,56 @@ function formatDuration(minutes) {
   return remainingMinutes === 0 ? `${hours}時間` : `${hours}時間${remainingMinutes}分`;
 }
 
-function render(data) {
+function clearDisplayForError(room) {
+  elements.currentRoomLabel.textContent = room.label;
+
+  elements.co2.textContent = "---";
+  elements.temp.textContent = "---";
+  elements.humidity.textContent = "---";
+  elements.rank.textContent = "--";
+
+  updateLevelBar(elements.co2Bar, 0, "good");
+  updateLevelBar(elements.tempBar, 0, "good");
+  updateLevelBar(elements.humidityBar, 0, "good");
+  updateLevelBar(elements.laundryBar, 0, "good");
+  updateLevelBar(elements.moldBar, 0, "good");
+
+  elements.laundryScore.textContent = "--";
+  elements.laundryMessage.textContent = "この部屋のセンサーが見つかりません．";
+  elements.laundryAdvice.textContent = "AirocoのsensorNameを確認してください．";
+
+  elements.moldRisk.textContent = "--";
+  elements.moldMessage.textContent = "判定できません．";
+  elements.moldDuration.textContent = "0分";
+  elements.moldAdvice.textContent = "データ取得後に表示されます．";
+
+  elements.message.textContent = `${room.label} のデータを取得できませんでした．`;
+
+  elements.scene.classList.remove("sunny", "cloudy", "rainy", "hot", "bad-air", "normal");
+  elements.scene.classList.add("cloudy", "normal");
+
+  elements.mouth.classList.remove("sad");
+  elements.mouth.classList.add("happy");
+
+  elements.questTitle.textContent = "センサー確認";
+  elements.questText.textContent = `${room.label} に対応するAirocoセンサーが見つかりません．ConsoleのsensorNameを確認してください．`;
+  elements.quest.classList.remove("hidden");
+}
+
+function renderRoom(roomResult) {
+  if (!roomResult || roomResult.error) {
+    const room = roomResult?.room ?? ROOMS[currentRoomIndex];
+    clearDisplayForError(room);
+    return;
+  }
+
+  const room = roomResult.room;
+  const data = roomResult.data;
+
+  elements.currentRoomLabel.textContent = room.label;
+
   const status = judgeStatus(data);
-  const highHumidityMinutes = getHighHumidityMinutes(data.humidity);
+  const highHumidityMinutes = getHighHumidityMinutes(room.id, data.humidity);
   const laundry = judgeLaundry(data);
   const mold = judgeMold(data, highHumidityMinutes);
   const quests = [...status.quests];
@@ -258,9 +394,11 @@ function render(data) {
   elements.temp.textContent = data.temp.toFixed(1);
   elements.humidity.textContent = data.humidity.toFixed(1);
   elements.rank.textContent = status.rank;
+
   elements.laundryScore.textContent = laundry.score;
   elements.laundryMessage.textContent = laundry.message;
   elements.laundryAdvice.textContent = laundry.advice;
+
   elements.moldRisk.textContent = mold.risk;
   elements.moldMessage.textContent = mold.message;
   elements.moldDuration.textContent = formatDuration(highHumidityMinutes);
@@ -291,7 +429,7 @@ function render(data) {
 
   if (quests.length > 0) {
     const quest = quests[0];
-    elements.questTitle.textContent = quest.title;
+    elements.questTitle.textContent = `${room.label}：${quest.title}`;
     elements.questText.textContent = quest.text;
     elements.quest.classList.remove("hidden");
   } else {
@@ -299,14 +437,65 @@ function render(data) {
   }
 
   if (status.rank === "S" || status.rank === "A") {
-    elements.message.textContent = "空気はおだやかです．キャラクターも元気に過ごしています．";
+    elements.message.textContent = `${room.label} の空気はおだやかです．キャラクターも元気に過ごしています．`;
   } else if (status.rank === "B") {
-    elements.message.textContent = "少し注意が必要です．しばらく様子を見ましょう．";
+    elements.message.textContent = `${room.label} は少し注意が必要です．しばらく様子を見ましょう．`;
   } else if (status.rank === "C") {
-    elements.message.textContent = "空気が重くなってきました．換気を検討してください．";
+    elements.message.textContent = `${room.label} の空気が重くなってきました．換気を検討してください．`;
   } else {
-    elements.message.textContent = "環境が悪化しています．早めの対応が必要です．";
+    elements.message.textContent = `${room.label} の環境が悪化しています．早めの対応が必要です．`;
   }
+}
+
+function buildRoomResults(sensors) {
+  return ROOMS.map(room => {
+    const sensor = findSensorByRoom(sensors, room);
+
+    if (!sensor) {
+      return {
+        room,
+        data: null,
+        error: true
+      };
+    }
+
+    const data = normalizeSensorData(sensor);
+
+    if (!data) {
+      return {
+        room,
+        data: null,
+        error: true
+      };
+    }
+
+    return {
+      room,
+      data,
+      error: false
+    };
+  });
+}
+
+function renderCurrentRoom() {
+  const roomResult = latestRoomResults[currentRoomIndex];
+
+  if (!roomResult) {
+    clearDisplayForError(ROOMS[currentRoomIndex]);
+    return;
+  }
+
+  renderRoom(roomResult);
+}
+
+function selectRoom(index) {
+  currentRoomIndex = index;
+
+  elements.roomTabs.forEach((tab, tabIndex) => {
+    tab.classList.toggle("active", tabIndex === currentRoomIndex);
+  });
+
+  renderCurrentRoom();
 }
 
 async function fetchStatus() {
@@ -318,37 +507,33 @@ async function fetchStatus() {
     }
 
     const sensors = await response.json();
-    console.log(sensors);
 
-    const target = sensors.find(sensor => sensor.sensorName === SENSOR_NAME);
-    console.log(target);
+    console.log("Airoco sensors:", sensors.map(sensor => sensor.sensorName ?? sensor.name));
 
-    if (!target) {
-      throw new Error("指定したセンサーが見つかりません");
-    }
+    latestRoomResults = buildRoomResults(sensors);
 
-    let weather = "sunny";
-
-    if (Number(target.relativeHumidity) >= 70) {
-      weather = "rainy";
-    } else if (Number(target.co2) >= 1000) {
-      weather = "cloudy";
-    }
-
-  const data = {
-  co2: Number(target.co2),
-  temp: Number(target.temperature),
-  humidity: Number(target.relativeHumidity),
-  weather: weather
-};
-
-    render(data);
+    const now = new Date();
+    elements.lastUpdated.textContent = `最終更新 ${now.toLocaleTimeString("ja-JP", {
+      hour: "2-digit",
+      minute: "2-digit"
+    })}`;
+    
+    renderCurrentRoom();
   } catch (error) {
     console.error(error);
+
     elements.message.textContent = "Airoco APIからデータを取得できませんでした．";
+    elements.questTitle.textContent = "通信エラー";
+    elements.questText.textContent = "Airoco APIとの通信に失敗しました．しばらくしてから再読み込みしてください．";
+    elements.quest.classList.remove("hidden");
   }
 }
 
+elements.roomTabs.forEach((tab, index) => {
+  tab.addEventListener("click", () => {
+    selectRoom(index);
+  });
+});
 
 fetchStatus();
 setInterval(fetchStatus, UPDATE_INTERVAL_MS);
