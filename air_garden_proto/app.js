@@ -1,9 +1,9 @@
-const API_URL = "http://localhost:1880/api/status"; // Node-RED側でこのURLを返す想定
-const UPDATE_INTERVAL_MS = 60 * 1000; // 試作用．本番では5分程度でもよい
+const API_URL = "https://airoco.necolico.jp/data-api/latest?id=CgETViZ2&subscription-key=6b8aa7133ece423c836c38af01c59880";
+const SENSOR_NAME = "Ｒ３ー４０１";
+const UPDATE_INTERVAL_MS = 60 * 1000;
+
 const HIGH_HUMIDITY_THRESHOLD = 70;
-const MOLD_STORAGE_KEY = "airGarden.highHumidityStartedAt";
-
-
+const MOLD_STORAGE_KEY = "air-garden-high-humidity-start";
 
 const elements = {
   scene: document.getElementById("scene"),
@@ -314,15 +314,39 @@ async function fetchStatus() {
     const response = await fetch(API_URL, { cache: "no-store" });
 
     if (!response.ok) {
-      throw new Error("Node-RED API not ready");
+      throw new Error("Airoco API not ready");
     }
 
-    const data = await response.json();
+    const sensors = await response.json();
+    console.log(sensors);
+
+    const target = sensors.find(sensor => sensor.sensorName === SENSOR_NAME);
+    console.log(target);
+
+    if (!target) {
+      throw new Error("指定したセンサーが見つかりません");
+    }
+
+    let weather = "sunny";
+
+    if (Number(target.relativeHumidity) >= 70) {
+      weather = "rainy";
+    } else if (Number(target.co2) >= 1000) {
+      weather = "cloudy";
+    }
+
+  const data = {
+  co2: Number(target.co2),
+  temp: Number(target.temperature),
+  humidity: Number(target.relativeHumidity),
+  weather: weather
+};
+
     render(data);
   } catch (error) {
-  console.error(error);
-  elements.message.textContent = "APIからデータを取得できませんでした．Node-REDを確認してください．";
-}
+    console.error(error);
+    elements.message.textContent = "Airoco APIからデータを取得できませんでした．";
+  }
 }
 
 
