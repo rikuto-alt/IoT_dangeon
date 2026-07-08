@@ -52,6 +52,7 @@ const elements = {
 
 let currentRoomIndex = 0;
 let latestRoomResults = [];
+const previousValuesByRoom = {};
 const highHumidityStartedAtByRoom = {};
 
 function clamp(value, min, max) {
@@ -244,43 +245,70 @@ function judgeLaundry(data) {
   };
 }
 
-function judgeMold(data, highHumidityMinutes) {
-  if (data.humidity >= 80 && highHumidityMinutes >= 30) {
+function judgeMold(roomId, data, highHumidityMinutes) {
+  let points = 0;
+
+  if (data.humidity >= 60) points += 2;
+  if (data.humidity >= 70) points += 4;
+
+  if (data.humidity >= 70 && highHumidityMinutes >= 30) {
+    points += 3;
+  }
+
+  if (data.temp >= 20 && data.temp <= 30) {
+    points += 2;
+  }
+
+  if (data.co2 >= 1000) {
+    points += 2;
+  }
+
+  const previous = previousValuesByRoom[roomId];
+
+  if (previous) {
+    const co2Rising = data.co2 > previous.co2;
+    const humidityRising = data.humidity > previous.humidity;
+
+    if (co2Rising) {
+      points += 1;
+    }
+
+    if (co2Rising && humidityRising) {
+      points += 2;
+    }
+  }
+
+  previousValuesByRoom[roomId] = {
+    co2: data.co2,
+    humidity: data.humidity
+  };
+
+  if (points >= 9) {
     return {
-      risk: "高",
+      risk: "カビ警報",
       value: 100,
-      message: "カビ警報：除湿推奨",
-      advice: "高湿度が続いています．換気・除湿をすぐ確認してください．",
+      message: `危険度 ${points}点`,
+      advice: "カビ発生リスクが非常に高いです．",
       level: "danger"
     };
   }
 
-  if (data.humidity >= HIGH_HUMIDITY_THRESHOLD && highHumidityMinutes >= 60) {
+  if (points >= 6) {
     return {
       risk: "高",
-      value: 90,
-      message: "高湿度が続いています．換気してください",
-      advice: "湿度70％以上が1時間以上続いているため，除湿をおすすめします．",
+      value: 75,
+      message: `危険度 ${points}点`,
+      advice: "カビが発生しやすい環境です．",
       level: "danger"
     };
   }
 
-  if (data.humidity >= HIGH_HUMIDITY_THRESHOLD) {
+  if (points >= 3) {
     return {
-      risk: "中",
-      value: 65,
-      message: "湿度70％超え．注意",
-      advice: "この状態が続くとカビが発生しやすくなります．",
-      level: "warning"
-    };
-  }
-
-  if (data.humidity >= 65) {
-    return {
-      risk: "中",
+      risk: "注意",
       value: 45,
-      message: "湿度がやや高めです",
-      advice: "早めに換気して，70％を超えないようにしましょう．",
+      message: `危険度 ${points}点`,
+      advice: "湿度や換気状況に注意してください．",
       level: "warning"
     };
   }
@@ -288,8 +316,8 @@ function judgeMold(data, highHumidityMinutes) {
   return {
     risk: "低",
     value: 20,
-    message: "カビ危険度：低",
-    advice: "今の湿度ならカビは発生しにくい状態です．",
+    message: `危険度 ${points}点`,
+    advice: "現在はカビ発生リスクは低いです．",
     level: "good"
   };
 }
@@ -380,7 +408,7 @@ function renderRoom(roomResult) {
   const status = judgeStatus(data);
   const highHumidityMinutes = getHighHumidityMinutes(room.id, data.humidity);
   const laundry = judgeLaundry(data);
-  const mold = judgeMold(data, highHumidityMinutes);
+  const mold = judgeMold(room.id, data, highHumidityMinutes);
   const quests = [...status.quests];
 
   if (mold.level === "danger") {
@@ -517,7 +545,7 @@ async function fetchStatus() {
       hour: "2-digit",
       minute: "2-digit"
     })}`;
-    
+
     renderCurrentRoom();
   } catch (error) {
     console.error(error);
