@@ -107,6 +107,13 @@
         <small id="laundryAdvice">Airocoの温度・湿度から部屋干ししやすさを計算します．</small>
       </div>
 
+      <section class="chart-panel">
+        <div class="chart-card">
+          <h2>湿度・CO2の1時間推移</h2>
+          <canvas id="historyChart"></canvas>
+        </div>
+      </section>
+
       <div class="life-card mold-card">
         <div class="life-card-header">
           <span>カビ危険度</span>
@@ -125,6 +132,7 @@
     </section>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
