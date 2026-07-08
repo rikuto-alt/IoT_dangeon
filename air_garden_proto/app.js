@@ -1,17 +1,9 @@
-const API_URL = "/api/status"; // Node-RED側でこのURLを返す想定
+const API_URL = "http://localhost:1880/api/status"; // Node-RED側でこのURLを返す想定
 const UPDATE_INTERVAL_MS = 60 * 1000; // 試作用．本番では5分程度でもよい
 const HIGH_HUMIDITY_THRESHOLD = 70;
 const MOLD_STORAGE_KEY = "airGarden.highHumidityStartedAt";
 
-const demoData = [
-  { co2: 620, temp: 24.6, humidity: 52, weather: "sunny" },
-  { co2: 890, temp: 25.4, humidity: 58, weather: "cloudy" },
-  { co2: 1280, temp: 26.2, humidity: 66, weather: "cloudy" },
-  { co2: 760, temp: 31.0, humidity: 64, weather: "sunny" },
-  { co2: 680, temp: 24.2, humidity: 76, weather: "rainy" }
-];
 
-let demoIndex = 0;
 
 const elements = {
   scene: document.getElementById("scene"),
@@ -36,7 +28,6 @@ const elements = {
   questTitle: document.getElementById("questTitle"),
   questText: document.getElementById("questText"),
   mouth: document.getElementById("mouth"),
-  mockButton: document.getElementById("mockButton")
 };
 
 let highHumidityStartedAt = readHighHumidityStartedAt();
@@ -329,15 +320,11 @@ async function fetchStatus() {
     const data = await response.json();
     render(data);
   } catch (error) {
-    // Node-REDが未接続でも試作画面を確認できるようにデモ値を表示する
-    render(demoData[demoIndex]);
-  }
+  console.error(error);
+  elements.message.textContent = "APIからデータを取得できませんでした．Node-REDを確認してください．";
+}
 }
 
-elements.mockButton.addEventListener("click", () => {
-  demoIndex = (demoIndex + 1) % demoData.length;
-  render(demoData[demoIndex]);
-});
 
 fetchStatus();
 setInterval(fetchStatus, UPDATE_INTERVAL_MS);
