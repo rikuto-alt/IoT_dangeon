@@ -329,9 +329,9 @@ async function fetchStatus() {
     const data = await response.json();
     render(data);
   } catch (error) {
-    // Node-REDが未接続でも試作画面を確認できるようにデモ値を表示する
-    render(demoData[demoIndex]);
-  }
+  console.error(error);
+  elements.message.textContent = "APIからデータを取得できませんでした．Node-REDを確認してください．";
+}
 }
 
 elements.mockButton.addEventListener("click", () => {
