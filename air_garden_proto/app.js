@@ -1,3 +1,6 @@
+let previousCo2 = null;
+let previousHumidity = null;
+
 const API_URL = "https://airoco.necolico.jp/data-api/latest?id=CgETViZ2&subscription-key=6b8aa7133ece423c836c38af01c59880";
 const SENSOR_NAME = "Ｒ３ー４０１";
 const UPDATE_INTERVAL_MS = 60 * 1000;
@@ -156,15 +159,88 @@ function judgeLaundry(data) {
 }
 
 function judgeMold(data, highHumidityMinutes) {
-  if (data.humidity >= 80 && highHumidityMinutes >= 30) {
+  let points = 0;
+
+  // 湿度
+  if (data.humidity >= 60) points += 2;
+  if (data.humidity >= 70) points += 4;
+
+  // 湿度70%以上が30分継続
+  if (data.humidity >= 70 && highHumidityMinutes >= 30) {
+    points += 3;
+  }
+
+  // 気温20〜30℃
+  if (data.temp >= 20 && data.temp <= 30) {
+    points += 2;
+  }
+
+  // CO2 1000ppm以上
+  if (data.co2 >= 1000) {
+    points += 2;
+  }
+
+  // 上昇傾向判定
+  let co2Rising = false;
+  let humidityRising = false;
+
+  if (previousCo2 !== null && data.co2 > previousCo2) {
+    points += 1;
+    co2Rising = true;
+  }
+
+  if (previousHumidity !== null && data.humidity > previousHumidity) {
+    humidityRising = true;
+  }
+
+  // 両方上昇
+  if (co2Rising && humidityRising) {
+    points += 2;
+  }
+
+  // 次回用に保存
+  previousCo2 = data.co2;
+  previousHumidity = data.humidity;
+
+  // 判定
+  if (points >= 9) {
     return {
-      risk: "高",
+      risk: "カビ警報",
       value: 100,
-      message: "カビ警報：除湿推奨",
-      advice: "高湿度が続いています．換気・除湿をすぐ確認してください．",
+      message: `危険度 ${points}点`,
+      advice: "カビ発生リスクが非常に高いです。換気・除湿を行ってください。",
       level: "danger"
     };
   }
+
+  if (points >= 6) {
+    return {
+      risk: "高",
+      value: 75,
+      message: `危険度 ${points}点`,
+      advice: "カビが発生しやすい環境です。",
+      level: "danger"
+    };
+  }
+
+  if (points >= 3) {
+    return {
+      risk: "注意",
+      value: 45,
+      message: `危険度 ${points}点`,
+      advice: "湿度や換気状況に注意してください。",
+      level: "warning"
+    };
+  }
+
+  return {
+    risk: "低",
+    value: 20,
+    message: `危険度 ${points}点`,
+    advice: "現在はカビ発生リスクは低いです。",
+    level: "good"
+  };
+}
 
   if (data.humidity >= HIGH_HUMIDITY_THRESHOLD && highHumidityMinutes >= 60) {
     return {
