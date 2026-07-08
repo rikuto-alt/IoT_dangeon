@@ -95,41 +95,44 @@
     </section>
 
     <section class="life-panel">
-      <div class="life-card laundry-card">
-        <div class="life-card-header">
-          <span>洗濯物乾きやすさ</span>
-          <strong><span id="laundryScore">--</span>%</strong>
-        </div>
-        <div class="bar">
-          <div id="laundryBar" class="bar-fill"></div>
-        </div>
-        <p id="laundryMessage">判定中です．</p>
-        <small id="laundryAdvice">Airocoの温度・湿度から部屋干ししやすさを計算します．</small>
-      </div>
+  <div class="life-card laundry-card">
+    <div class="life-card-header">
+      <span>洗濯物乾きやすさ</span>
+      <strong><span id="laundryScore">--</span>%</strong>
+    </div>
+    <div class="bar">
+      <div id="laundryBar" class="bar-fill"></div>
+    </div>
+    <p id="laundryMessage">判定中です．</p>
+    <small id="laundryAdvice">Airocoの温度・湿度から部屋干ししやすさを計算します．</small>
+  </div>
 
-      <section class="chart-panel">
-        <div class="chart-card">
-          <h2>湿度・CO2の1時間推移</h2>
-          <canvas id="historyChart"></canvas>
-        </div>
-      </section>
+  <div class="life-card mold-card">
+    <div class="life-card-header">
+      <span>カビ危険度</span>
+      <strong id="moldRisk">--</strong>
+    </div>
+    <div class="bar">
+      <div id="moldBar" class="bar-fill"></div>
+    </div>
+    <p id="moldMessage">判定中です．</p>
+    <small>
+      高湿度継続時間：<span id="moldDuration">0分</span>
+      <br />
+      <span id="moldAdvice">湿度70％以上が続くと警告します．</span>
+    </small>
+  </div>
+</section>
 
-      <div class="life-card mold-card">
-        <div class="life-card-header">
-          <span>カビ危険度</span>
-          <strong id="moldRisk">--</strong>
-        </div>
-        <div class="bar">
-          <div id="moldBar" class="bar-fill"></div>
-        </div>
-        <p id="moldMessage">判定中です．</p>
-        <small>
-          高湿度継続時間：<span id="moldDuration">0分</span>
-          <br />
-          <span id="moldAdvice">湿度70％以上が続くと警告します．</span>
-        </small>
-      </div>
-    </section>
+<section class="chart-panel">
+  <div class="chart-card">
+    <h2>湿度・CO2の1時間推移</h2>
+    <div class="chart-wrap">
+      <canvas id="historyChart"></canvas>
+    </div>
+  </div>
+</section>
+
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
