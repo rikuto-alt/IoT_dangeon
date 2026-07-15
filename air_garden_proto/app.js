@@ -170,13 +170,13 @@ function judgeStatus(data) {
   if (data.co2 >= 1500) {
     score -= 55;
     quests.push({
-      title: "緊急換気クエスト！",
+      title: "今すぐ換気！",
       text: "CO2濃度がかなり高くなっています．窓やドアを開けて換気しましょう．"
     });
   } else if (data.co2 >= 1000) {
     score -= 35;
     quests.push({
-      title: "換気クエスト発生！",
+      title: "換気が必要！",
       text: "CO2濃度が高くなっています．5〜10分ほど換気して様子を見ましょう．"
     });
   } else if (data.co2 >= 800) {
@@ -186,7 +186,7 @@ function judgeStatus(data) {
   if (data.temp >= 30) {
     score -= 25;
     quests.push({
-      title: "暑さ対策クエスト！",
+      title: "暑さ対策！",
       text: "室温が高くなっています．空調や水分補給を確認しましょう．"
     });
   } else if (data.temp >= 27) {
@@ -196,7 +196,7 @@ function judgeStatus(data) {
   if (data.humidity >= 70) {
     score -= 15;
     quests.push({
-      title: "じめじめ注意クエスト！",
+      title: "じめじめ注意！",
       text: "湿度が高めです．換気や除湿を確認しましょう．"
     });
   } else if (data.humidity < 35) {
@@ -413,7 +413,7 @@ function renderRoom(roomResult) {
 
   if (mold.level === "danger") {
     quests.unshift({
-      title: "カビ警報クエスト！",
+      title: "カビ警報！",
       text: `${mold.message} ${mold.advice}`
     });
   }
