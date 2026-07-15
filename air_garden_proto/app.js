@@ -63,6 +63,8 @@ let historyByRoom = loadHistory();
 const previousValuesByRoom = {};
 const highHumidityStartedAtByRoom = {};
 
+
+
 function loadHistory() {
   try {
     const saved = localStorage.getItem(HISTORY_STORAGE_KEY);
@@ -170,6 +172,7 @@ function updateHistoryChart(roomId) {
     historyChart.data.datasets[1].data = co2Data;
     historyChart.update();
   }
+}
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
