@@ -1,6 +1,10 @@
 const API_URL = "https://airoco.necolico.jp/data-api/latest?id=CgETViZ2&subscription-key=6b8aa7133ece423c836c38af01c59880";
 const UPDATE_INTERVAL_MS = 60 * 1000;
 
+const HISTORY_STORAGE_KEY = "air-garden-history";
+const ONE_HOUR_MS = 60 * 60 * 1000;
+
+
 const HIGH_HUMIDITY_THRESHOLD = 70;
 const MOLD_STORAGE_KEY = "air-garden-high-humidity-start";
 
@@ -52,8 +56,228 @@ const elements = {
 
 let currentRoomIndex = 0;
 let latestRoomResults = [];
+
+let historyChart = null;
+let historyByRoom = loadHistory();
+
 const previousValuesByRoom = {};
 const highHumidityStartedAtByRoom = {};
+
+function loadHistory() {
+  try {
+    const saved = localStorage.getItem(HISTORY_STORAGE_KEY);
+    return saved ? JSON.parse(saved) : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function saveHistory() {
+  try {
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(historyByRoom));
+  } catch (error) {
+    // 保存できなくても画面表示は続ける
+  }
+}
+
+function addHistory(roomId, data) {
+  const now = Date.now();
+
+  if (!historyByRoom[roomId]) {
+    historyByRoom[roomId] = [];
+  }
+
+  historyByRoom[roomId].push({
+    time: now,
+    humidity: data.humidity,
+    co2: data.co2
+  });
+
+  historyByRoom[roomId] = historyByRoom[roomId].filter(item => {
+    return now - item.time <= ONE_HOUR_MS;
+  });
+
+  saveHistory();
+}
+
+function updateHistoryChart(roomId) {
+  const canvas = document.getElementById("historyChart");
+  if (!canvas) return;
+
+  const history = historyByRoom[roomId] || [];
+
+  const labels = history.map(item => {
+    return new Date(item.time).toLocaleTimeString("ja-JP", {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  });
+
+  const humidityData = history.map(item => item.humidity);
+  const co2Data = history.map(item => item.co2);
+
+  if (!historyChart) {
+    historyChart = new Chart(canvas, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "湿度 %",
+            data: humidityData,
+            yAxisID: "yHumidity"
+          },
+          {
+            label: "CO2 ppm",
+            data: co2Data,
+            yAxisID: "yCo2"
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          yHumidity: {
+            type: "linear",
+            position: "left",
+            min: 0,
+            max: 100,
+            title: {
+              display: true,
+              text: "湿度 %"
+            }
+          },
+          yCo2: {
+            type: "linear",
+            position: "right",
+            min: 400,
+            max: 2000,
+            title: {
+              display: true,
+              text: "CO2 ppm"
+            },
+            grid: {
+              drawOnChartArea: false
+            }
+          }
+        }
+      }
+    });
+  } else {
+    historyChart.data.labels = labels;
+    historyChart.data.datasets[0].data = humidityData;
+    historyChart.data.datasets[1].data = co2Data;
+    historyChart.update();
+  }
+}function loadHistory() {
+  try {
+    const saved = localStorage.getItem(HISTORY_STORAGE_KEY);
+    return saved ? JSON.parse(saved) : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function saveHistory() {
+  try {
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(historyByRoom));
+  } catch (error) {
+    // 保存できなくても画面表示は続ける
+  }
+}
+
+function addHistory(roomId, data) {
+  const now = Date.now();
+
+  if (!historyByRoom[roomId]) {
+    historyByRoom[roomId] = [];
+  }
+
+  historyByRoom[roomId].push({
+    time: now,
+    humidity: data.humidity,
+    co2: data.co2
+  });
+
+  historyByRoom[roomId] = historyByRoom[roomId].filter(item => {
+    return now - item.time <= ONE_HOUR_MS;
+  });
+
+  saveHistory();
+}
+
+function updateHistoryChart(roomId) {
+  const canvas = document.getElementById("historyChart");
+  if (!canvas) return;
+
+  const history = historyByRoom[roomId] || [];
+
+  const labels = history.map(item => {
+    return new Date(item.time).toLocaleTimeString("ja-JP", {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  });
+
+  const humidityData = history.map(item => item.humidity);
+  const co2Data = history.map(item => item.co2);
+
+  if (!historyChart) {
+    historyChart = new Chart(canvas, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "湿度 %",
+            data: humidityData,
+            yAxisID: "yHumidity"
+          },
+          {
+            label: "CO2 ppm",
+            data: co2Data,
+            yAxisID: "yCo2"
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          yHumidity: {
+            type: "linear",
+            position: "left",
+            min: 0,
+            max: 100,
+            title: {
+              display: true,
+              text: "湿度 %"
+            }
+          },
+          yCo2: {
+            type: "linear",
+            position: "right",
+            min: 400,
+            max: 2000,
+            title: {
+              display: true,
+              text: "CO2 ppm"
+            },
+            grid: {
+              drawOnChartArea: false
+            }
+          }
+        }
+      }
+    });
+  } else {
+    historyChart.data.labels = labels;
+    historyChart.data.datasets[0].data = humidityData;
+    historyChart.data.datasets[1].data = co2Data;
+    historyChart.update();
+  }
+}
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -402,6 +626,9 @@ function renderRoom(roomResult) {
 
   const room = roomResult.room;
   const data = roomResult.data;
+  addHistory(room.id, data);
+  updateHistoryChart(room.id);
+
 
   elements.currentRoomLabel.textContent = room.label;
 
@@ -524,6 +751,8 @@ function selectRoom(index) {
   });
 
   renderCurrentRoom();
+
+  updateHistoryChart(ROOMS[currentRoomIndex].id);
 }
 
 async function fetchStatus() {
